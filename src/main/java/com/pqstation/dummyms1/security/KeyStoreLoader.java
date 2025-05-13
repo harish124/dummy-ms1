@@ -1,6 +1,8 @@
 package com.pqstation.dummyms1.security;
 
+import lombok.RequiredArgsConstructor;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +28,12 @@ public class KeyStoreLoader {
     @Value("${keystore.password}")
     private String keystorePassword;
 
+    @Value("${truststore.path}")
+    private String truststorePath;
+
+    @Value("${truststore.password}")
+    private String truststorePassword;
+
     @Value("${keystore.key-password}")
     private String keyPassword;
 
@@ -35,13 +43,24 @@ public class KeyStoreLoader {
     private PrivateKey privateKey;
     private X509Certificate certificate;
 
-    @Bean
-    public SSLContext loadKeystore() throws Exception {
+    /**
+     * @param keyStoreType - JKS / PKCS12
+     * @param provider     -e.g BC
+     * @param tlsProtocol  -e.g TLSv1.3
+     * @return
+     * @throws Exception
+     */
+//    @Bean
+    public SSLContext loadKeystore(final String keyStoreType,
+                                   final String provider,
+                                   final String tlsProtocol) throws Exception {
+
         System.out.println("Reached Security class");
         Security.addProvider(new BouncyCastleProvider());
+        Security.addProvider(new BouncyCastleJsseProvider());
 
-//        KeyStore keyStore = KeyStore.getInstance("PKCS12", "BC"); // Or "BCFKS" if you're using that
-        KeyStore keyStore = KeyStore.getInstance("JKS"); // Or "BCFKS" if you're using that
+        KeyStore keyStore = KeyStore.getInstance(keyStoreType, provider); // Or "BCFKS" if you're using that
+//        KeyStore keyStore = KeyStore.getInstance("JKS"); // Or "BCFKS" if you're using that
         try (InputStream is = keystoreResource.getInputStream()) {
             keyStore.load(is, keystorePassword.toCharArray());
             System.out.println("keystore loaded successfully");
@@ -60,7 +79,7 @@ public class KeyStoreLoader {
         TrustManagerFactory trustManagerFactory = loadTrustStore();
 
         // Create the SSLContext
-        var sslContext = SSLContext.getInstance("TLSv1.2");  // or TLSv1.2
+        var sslContext = SSLContext.getInstance(tlsProtocol);  // or TLSv1.2
         if (trustManagerFactory != null) {
             sslContext.init(keyManagers, trustManagerFactory.getTrustManagers(), null);
         } else {
@@ -81,8 +100,8 @@ public class KeyStoreLoader {
         try {
             // Load Truststore (you can also configure it programmatically if you need to)
             KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-            try (FileInputStream trustStoreStream = new FileInputStream("path/to/truststore.jks")) {
-                trustStore.load(trustStoreStream, "your-truststore-password".toCharArray());
+            try (FileInputStream trustStoreStream = new FileInputStream(truststorePath)) {
+                trustStore.load(trustStoreStream, truststorePassword.toCharArray());
             }
 
             // Initialize TrustManagerFactory
